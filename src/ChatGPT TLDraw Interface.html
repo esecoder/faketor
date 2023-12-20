@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatGPT Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Additional styles if needed */
+        .chat-active {
+            background-color: #f3f4f6; /* This is the Tailwind color "gray-100" */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+
+<div class="flex h-screen">
+    <!-- Sidebar -->
+    <div class="bg-white w-64 p-6 hidden sm:block">
+        <div class="mb-4">
+            <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                New Chat
+            </button>
+        </div>
+        <div class="mb-4">
+            <div class="text-gray-500 mb-2">Previous 7 Days</div>
+            <ul>
+                <li class="mb-2 chat-active p-2 rounded">Nature of thought</li>
+                <li class="mb-2 p-2 rounded hover:bg-gray-100">Marketplace Items: Synonym</li>
+            </ul>
+        </div>
+        <div class="mb-4">
+            <div class="text-gray-500 mb-2">Previous 30 Days</div>
+            <ul>
+                <li class="mb-2 p-2 rounded hover:bg-gray-100">Unit Testing Benefits</li>
+                <li class="mb-2 p-2 rounded hover:bg-gray-100">IP Validation & Geolocation</li>
+                <!-- More items... -->
+            </ul>
+        </div>
+        <!-- More sections... -->
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col">
+        <nav class="bg-white p-4 flex justify-between border-b-2">
+            <div class="flex">
+                <div class="mr-4">
+                    <input type="search" placeholder="Search" class="p-2 border rounded">
+                </div>
+                <div>
+                    <button class="border rounded p-2">🔍</button>
+                </div>
+            </div>
+            <div class="flex items-center">
+                <span class="bg-green-500 text-white p-2 rounded mr-2">GPT-3.5</span>
+                <span class="bg-gray-200 text-black p-2 rounded">GPT-4</span>
+            </div>
+        </nav>
+
+        <header class="bg-white p-6 text-4xl font-bold text-center border-b-2">
+            ChatGPT
+        </header>
+
+        <main class="flex-grow p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button class="bg-white p-4 rounded shadow hover:shadow-md">
+                    Suggest fun activities to do indoors with my high-energy dog
+                </button>
+                <button class="bg-white p-4 rounded shadow hover:shadow-md">
+                    Show me a code snippet of a website's sticky header
+                </button>
+                <button class="bg-white p-4 rounded shadow hover:shadow-md">
+                    Design a database schema for an online merch store
+                </button>
+                <button class="bg-white p-4 rounded shadow hover:shadow-md">
+                    Write an email to request a quote from local plumbers
+                </button>
+            </div>
+        </main>
+
+        <footer class="bg-white p-4 border-t-2">
+            <div class="flex justify-between items-center">
+                <input type="text" placeholder="Send a message" class="p-2 border rounded flex-1 mr-4">
+                <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    Send
+                </button>
+            </div>
+            <div class="text-gray-500 text-center text-sm mt-4">
+                ChatGPT can make mistakes. Consider checking important information.
+            </div>
+        </footer>
+    </div>
+</div>
+
+<script>
+    // JavaScript if needed
+</script>
+</body>
+</html>
