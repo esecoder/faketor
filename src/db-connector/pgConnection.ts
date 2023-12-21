@@ -184,7 +184,7 @@ export class PgConnection implements Connectable {
             const columnStr = queryProps.columnNames.join(', ')
             const len = queryProps.columnNames.length
 
-            const text = `UPDATE ${queryProps.tableName} SET (${columnStr}) VALUES `
+            const prefix = `UPDATE ${queryProps.tableName} SET (${columnStr}) VALUES `
 
             const valuePlaceholders = queryProps.entities.map((_, i) => {
                 `($${queryProps.columnNames.map((_, j) => `$${i * len + (j + 1)}`).join(', ')})`
@@ -194,7 +194,7 @@ export class PgConnection implements Connectable {
             //`($${i * len + 1}, $${i * len + 2}, $${i * len + 3})`
             //`($${i * 3 + 1}, $${i * 3 + 2}, $${i * 3 + 3})`
 
-            const queryText = `${text}${valuePlaceholders} RETURNING ${queryProps.primaryKeyColumn}`
+            const queryText = `${prefix}${valuePlaceholders} RETURNING ${queryProps.primaryKeyColumn}`
             console.log(queryText)
 
             // `flat()` will flatten the array of arrays into a single array that can be used in the query
