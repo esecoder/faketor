@@ -33,6 +33,10 @@ export class C {
 
     static NOT_UNIQUE: string = 'not-unique'
 
+    static TABLE_UNIQUE: string = 'table-unique'
+
+    static GLOBAL_UNIQUE: string = 'global-unique'
+
     static COLUMN_PROPS_COUNT_MAX = 9
 
     static COLUMN_PROPS_COUNT_MIN = 8
@@ -48,6 +52,8 @@ export class C {
     static FOREIGN_KEY_IND = 4
 
     static EMBEDDED_TABLE_IND = 5
+
+    //static FK_UNIQUENESS_IND = 6
 
     static NULLABLE_IND = 6
 

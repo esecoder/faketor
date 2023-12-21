@@ -4,6 +4,9 @@ export class Table {
     name: string
     columns: Array<Column>
     is_join_table: boolean
+    data_uniqueness: string //table-unique/global-unique table-unique is when it is NOT ONLY found in this table 
+    // and can be found in more than one table. global-unique is when it is ONLY found in this table and nowhere else
+    //distribution: string
 }
 
 /*
@@ -22,6 +25,7 @@ export class Table {
         unique: true, //true. if unique, relationship might will be one-to-one else one-to-many. For many-to-many relationship, we look for a join table which will contain both rows together
         gen_type: "auto" //custom. must be custom if desc is provided
    }],
-   join_table: false
+   join_table: false,
+   data_uniquenes: "table-unique"
 }
  */
