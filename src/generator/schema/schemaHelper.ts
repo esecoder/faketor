@@ -21,6 +21,10 @@ export const isValidSchema = (tables: (Table|Table2)[]): boolean => {
             return false;
         }
 
+        if (table.data_uniqueness !== C.TABLE_UNIQUE || table.data_uniqueness !== C.GLOBAL_UNIQUE) {
+            return false;
+        }
+
         table.columns.forEach((column: Column|string) => {
             //validate types
             if (column !instanceof Column && typeof column !== 'string') {
