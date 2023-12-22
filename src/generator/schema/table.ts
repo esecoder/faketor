@@ -23,7 +23,7 @@ export class Table {
         primary_key: false, //true. must not be nullable or foreign key if data is primary key
         nullable: false, //true. must be nullable if data is foreign key
         unique: true, //true. if unique, relationship might will be one-to-one else one-to-many. For many-to-many relationship, we look for a join table which will contain both rows together
-        gen_type: "auto" //custom. must be custom if desc is provided
+        gen_type: "auto" //custom. must be custom if desc is provided. if auto database generates value on INSERT
    }],
    join_table: false,
    data_uniquenes: "table-unique"
