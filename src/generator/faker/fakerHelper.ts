@@ -1,3 +1,4 @@
+import { CustomAugmenter } from './../customAugmenter';
 //import { faker } from '@faker-js/faker'
 import {faker} from '@faker-js/faker'
 import {Column} from "../schema/column"
@@ -6,14 +7,22 @@ import { C } from "../../common/c"
 
 //const fkr = new Faker({ locale: [en_NG] })
 //TODO support user defined locale later
-export const produceEntities = (columnSchemas: Column[], quantity: number): Array<string[]> => {
-    if (!columnSchemas || !quantity)
+export const generateEntities = (columns: Column[], quantity: number, 
+    customAugmenter: CustomAugmenter = null): Array<string[]> => {
+    if (!columns || !quantity)
         return [];
 
     const entities: Array<string[]> = [] //array of string arrays
     for (let i = 0; i <= quantity; i++) {
         const entity: string[] = []; //array for column values
-        columnSchemas.forEach((column: Column, j: number) => {
+        columns.forEach((column: Column, j: number) => {
+            //if there is a custom augmentation data for this column, then use that
+            if (customAugmenter) {
+                if (customAugmenter.column === column) {
+                    entity.push(customAugmenter.augmentationData[i])
+                    return;
+                }
+            }
             //if auto, we allow the database generate this, if custom, we generate
             if (column.gen_type === 'auto') {
                 entity.push('');
@@ -31,6 +40,7 @@ export const produceEntities = (columnSchemas: Column[], quantity: number): Arra
                         throw Error(`Unsupported data type. Column name ${column.name} unsupported data type ${column.data.type}. 
                         Kindly visit https://faketor.com/doc/supported-data-types`);
                     entity.push(resolveTypeDesc(column.data.type, column.data.desc));
+                    return;
                 }
             }
             if (!column.nullable) {
@@ -38,6 +48,7 @@ export const produceEntities = (columnSchemas: Column[], quantity: number): Arra
                     throw Error(`Unsupported data type. Column name ${column.name} unsupported data type ${column.data.type}. 
                         Kindly visit https://faketor.com/doc/supported-data-types`);
                 entity.push(resolveTypeDesc(column.data.type, column.data.desc));
+                return;
             }
         })
         entities.push(entity);
