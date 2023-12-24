@@ -2,7 +2,7 @@ import {Table} from "./table";
 import {Table2} from "./table2";
 import {Column} from "./column";
 import {ColumnDataDesc} from "./columnDataDesc";
-import {RelationshipMap} from "./RelationshipMap";
+import {RelationshipMap} from "./relationshipMap";
 import { C } from "../../common/c";
 
 /** Validates a table schema */
