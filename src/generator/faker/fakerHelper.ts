@@ -12,14 +12,18 @@ export const generateEntities = (columns: Column[], quantity: number,
     if (!columns || !quantity)
         return [];
 
-    const entities: Array<string[]> = [] //array of string arrays
+    const entities: Array<string[]> = [] //array of string arrays for all records generated
     for (let i = 0; i <= quantity; i++) {
         const entity: string[] = []; //array for column values
         columns.forEach((column: Column, j: number) => {
             //if there is a custom augmentation data for this column, then use that
             if (customAugmenter) {
                 if (customAugmenter.column === column) {
-                    entity.push(customAugmenter.augmentationData[i])
+                    if (customAugmenter.augmentationData instanceof Map) {
+                        entity.push(customAugmenter.augmentationData.get(`${i}`));
+                    } else {
+                        entity.push(customAugmenter.augmentationData[i]);
+                    }
                     return;
                 }
             }
