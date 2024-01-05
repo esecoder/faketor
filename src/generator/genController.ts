@@ -1,20 +1,23 @@
 import { QueryProperties } from './queryProperties';
 import express from "express";
-import {Connectable} from "../db-connector/connectable";
-import {PgConnection} from "../db-connector/pgConnection";
-import {ConnectionDataEntity} from "../db-connector/connectionDataEntity";
-import {ConnectionFactory} from "../db-connector/connectionFactory";
-import {Table} from "./schema/table";
-import {Table2} from "./schema/table2";
-import {Column} from "./schema/column";
-import {ColumnDataDesc} from "./schema/columnDataDesc";
-import {getAllDependencies, getForeignKeyTables, getTableDependents, isValidSchema, resolveRelationships, stringToColumnSchema, verifyColumnRules} from "./schema/schemaHelper";
-import {produceEntities} from "./faker/fakerHelper";
+import { Connectable } from "../db-connector/connectable";
+import { ConnectionDataEntity } from "../db-connector/connectionDataEntity";
+import { ConnectionFactory } from "../db-connector/connectionFactory";
+import { Table } from "./schema/table";
+import { Table2 } from "./schema/table2";
+import { Column } from "./schema/column";
+import * as schemaHelper from "./schema/schemaHelper";
 import { C } from '../common/c';
+import { FakerEntityProvider } from './faker/FakerEntityProvider';
+import { CustomAugmenter } from './customAugmenter';
+import { randomInt } from 'crypto';
+import * as helper from './helper';
 
 export const generate = async (req: express.Request, res: express.Response) => {
     try {
-        const { connection_data, connection_uri, db_provider, table_list, quantity } = req.body;
+        const { connection_data, connection_uri, db_provider, table_list, quantity }: 
+        { connection_data: ConnectionDataEntity, connection_uri: string, db_provider: string, 
+            table_list: (Table|Table2)[], quantity: number } = req.body;
 
         if (!connection_data && !connection_uri) {
             res.status(401).send('Error. Connection data or connection string not supplied.');
@@ -24,7 +27,7 @@ export const generate = async (req: express.Request, res: express.Response) => {
             res.status(401).send('Error. Database provider not supplied.');
         }
 
-        if (!table_list || !Array.isArray(table_list) || !isValidSchema(table_list)) {
+        if (!table_list || !Array.isArray(table_list) || !schemaHelper.isValidSchema(table_list)) {
             res.status(401).send('Error. Data schema not supplied or not valid. Make sure every table schema is supplied correctly. Please check https://faketor.com/doc/schema')
         }
 
@@ -32,7 +35,7 @@ export const generate = async (req: express.Request, res: express.Response) => {
             res.status(401).send('Error. Quantity not supplied.')
         }
 
-        if (!isDbProviderSupported(db_provider)) {
+        if (!helper.isDbProviderSupported(db_provider)) {
             res.status(401)
                 .send('Error. Database provider not supported. Check https://faketor.com/doc/supported-dbs ' +
                     'to see the database providers supported.')
@@ -48,11 +51,11 @@ export const generate = async (req: express.Request, res: express.Response) => {
 
         let connection: Connectable
         if (connection_uri) {
-            if (!isValidConnectionUri(connection_uri)) {
+            if (!helper.isValidConnectionUri(connection_uri)) {
                 res.status(401).send('Error. Invalid database connection url.')
             }
 
-            if (!isValidConnectionProtocol(getConnectionProtocol(connection_uri))) {
+            if (!helper.isValidConnectionProtocol(helper.getConnectionProtocol(connection_uri))) {
                 res.status(401).send('Error. Invalid or unsupported database connection protocol.')
             }
 
@@ -80,8 +83,9 @@ export const generate = async (req: express.Request, res: express.Response) => {
         const independentTables: Table[] = []; //tables with no dependencies but have dependents
         const dependentTables: Table[] = []; //tables with dependencies
 
-        const allDeps: string[] = getAllDependencies(table_list);
+        const allDeps: string[] = schemaHelper.getAllDependencies(table_list);
 
+        //Iterate over tables from schema and convert Table2s to Tables and sort tables into isolated, independents and dependents.
         table_list.forEach((table: Table|Table2, i: number, arri: (Table|Table2)[]) => {
             const columnNames: string[] = [];
             const columns: Column[] = [];
@@ -89,7 +93,7 @@ export const generate = async (req: express.Request, res: express.Response) => {
 
             table.columns.forEach((col: Column|string, j: number, arrj: (Column|string)[]) => {
                 if (col instanceof Column) {
-                    verifyColumnRules(col);
+                    schemaHelper.verifyColumnRules(col);
 
                     if (col.primary_key)
                         primaryKeyCol = col.name;
@@ -97,7 +101,7 @@ export const generate = async (req: express.Request, res: express.Response) => {
                     columns.push(col)
                     columnNames.push(col.name)
                 } else if (typeof col === 'string') {
-                    const column = stringToColumnSchema(col);
+                    const column = schemaHelper.stringToColumnSchema(col);
 
                     if (column.primary_key)
                         primaryKeyCol = column.name;
@@ -113,98 +117,185 @@ export const generate = async (req: express.Request, res: express.Response) => {
 
             //sort tables
             //check for dependencies
-            if (getForeignKeyTables(columns).length === 0) {
+            if (schemaHelper.getForeignKeyTables(columns).length === 0) {
                 //if non, check for dependents
                 if(!allDeps.includes(table.name)) {
                     //isolated table
                     isolatedTables.push(table as Table);
                 } else {
-                    //idenpendent table
+                    //independent table
                     independentTables.push(table as Table);
                 }
             } else {
                 dependentTables.push(table as Table);
             }
-
-            //resolve for one-to-one unidirectional
-
-
-            const ids = connection.query(table.name, columnNames, primaryKeyCol, produceEntities(columns, quantity));
         });
 
         //populate isolated tables first
-        isolatedTables.forEach((table: Table) => {
-            const queryProps = new QueryProperties(table, quantity);
-            connection.query(queryProps);
-        });
+        saveIsolatedTables(isolatedTables, quantity, connection);
 
         //populate independent tables
-        independentTables.forEach((table: Table) => {
-            /*const columnNames: string[] = [];
-            const columns: Column[] = [];
-            let primaryKeyCol = '';
+        saveIndependentTables(table_list, independentTables, quantity, connection);
 
-            table.columns.forEach((col: Column) => {
-                if (col.primary_key)
-                        primaryKeyCol = col.name
-                columns.push(col);
-                columnNames.push(col.name);
-            });*/
-
-            const dependents: Table[] = getTableDependents(table.name, table_list);
-            const relationships: Map<string, Map<string, string>> = resolveRelationships(table, dependents);
-
-            //filter one-to-one
-            const oneToOnes = dependents.filter((t: Table) => {
-                return relationships.get(t.name).get(table.name) === 'one-to-one';
-            });
-
-            //filter one-to-many
-            const oneToManys = dependents.filter((t: Table) => {
-                return relationships.get(t.name).get(table.name) === 'one-to-many';
-            });
-
-            oneToOnes.forEach((table: Table) => {
-                let queryProps = new QueryProperties(table, quantity);
-                const indIds = connection.query(queryProps);
-                queryProps = new QueryProperties() 
-            });
-        });
     } catch (e) {
-
+        res.status(500).send(e.message);
+        //TODO log error and notify adminator;
     }
 }
 
-const isDbProviderSupported = (dbProvider: string|null): boolean => {
-    if (dbProvider) {
-        return C.PROVIDERS.includes(dbProvider.toLowerCase())
-    } else return false
+/**
+ * This function populates the isolated tables. Isolated tables are tables without dependencies and dependents.
+ * @param isolatedTables Isolated tables to populate.
+ * @param quantity Quantity of rows to generate.
+ * @param connection Database connection.
+ */
+const saveIsolatedTables = async (isolatedTables: Table[], quantity: number, connection: Connectable) => {
+    isolatedTables.forEach((table: Table) => {
+        const queryProps = new QueryProperties(table, new FakerEntityProvider(table.columns, quantity));
+        connection.query(queryProps);
+    });
 }
 
-const isValidConnectionUri = (connectionUrl: string): boolean => {
-    return /^(\w+):\/\/([^:@]+):([^@]+)@([^:@]+):(\d+)\/(.+)$/i.test(connectionUrl)
+/**
+ * This function populates the independent tables and their dependents. Independent tables are tables without dependencies but has dependents.
+ * @param table_list List of tables in the schema.
+ * @param independentTables Independent tables to populate.
+ * @param quantity Quantity of rows to generate.
+ * @param connection Database connection.
+ */
+const saveIndependentTables = async (table_list: Table[], independentTables: Table[], quantity: number, connection: Connectable) => {
+    independentTables.forEach(async (indTable: Table) => {
+        //get dependents and their relationship map
+        const dependents: Table[] = schemaHelper.getTableDependents(indTable.name, table_list);
+        const relationships: Map<string, Map<string, string>> = schemaHelper.resolveRelationships(indTable, dependents);
+
+        //filter out one-to-ones
+        const oneToOnes = dependents.filter((otoDepTable: Table) => {
+            return relationships.get(otoDepTable.name).get(indTable.name) === 'one-to-one';
+        });
+
+        //filter out one-to-manys
+        const oneToManys = dependents.filter((otmDepTable: Table) => {
+            return relationships.get(otmDepTable.name).get(indTable.name) === 'one-to-many';
+        });
+
+        //insert query for independent table
+        let indQueryProps;
+        let indIds: string[];
+        if (indTable.data_uniqueness === C.TABLE_UNIQUE) { //this will be repeated on more than one table
+            indQueryProps = new QueryProperties(indTable,
+                new FakerEntityProvider(indTable.columns, quantity));
+            //returned ids from insert
+            indIds = await connection.query(indQueryProps);
+        }
+
+        //iterate through one-to-ones
+        oneToOnes.forEach(async (oto: Table) => {
+            //if independent table data is globally unique, that means it's only available in this table throughout 
+            // the database. No other table has a copy of it's reference.
+            if (indTable.data_uniqueness === C.GLOBAL_UNIQUE) {
+                //create new independents for each dependent
+                const iQProps = new QueryProperties(indTable,
+                    new FakerEntityProvider(indTable.columns, quantity));
+                //returned ids from insert
+                const iIds = await connection.query(iQProps);
+
+                const augmentedColumn = oto.columns.find((c: Column) =>
+                    c.data.foreign_key && c.data.embedded_table === indTable.name);
+                const customAugmenter = new CustomAugmenter<string[]>(iIds, augmentedColumn);
+                const fakerEntityProvider = new FakerEntityProvider(oto.columns, quantity, customAugmenter);
+                const otoQueryProps = new QueryProperties(oto, fakerEntityProvider);
+                    /*const otoIds = */connection.query(otoQueryProps);
+
+            } else { //unique only in this table, the record can be found in other tables
+                const augmentedColumn = oto.columns.find((c: Column) =>
+                    c.data.foreign_key && c.data.embedded_table === indTable.name);
+                const customAugmenter = new CustomAugmenter<string[]>(indIds, augmentedColumn);
+                const fakerEntityProvider = new FakerEntityProvider(oto.columns, quantity, customAugmenter);
+                const otoQueryProps = new QueryProperties(oto, fakerEntityProvider);
+                    /*const otoIds = */connection.query(otoQueryProps);
+            }
+        });
+
+        //iterate through one-to-manys
+        oneToManys.forEach(async (otm: Table) => {
+            const randMax = quantity < 5 ? quantity : 5; //random number max
+            if (indTable.data_uniqueness === C.GLOBAL_UNIQUE) {
+                //create new independents for each dependent
+                const iQProps = new QueryProperties(indTable,
+                    new FakerEntityProvider(indTable.columns, quantity));
+                //returned ids from insert
+                const iIds = await connection.query(iQProps);
+
+                //random rows are selected to assign indepentable foreign key values that will be used in insertion or update query
+                const augData = await getAugDataMap(iIds, randMax, quantity);
+                const augmentedColumn = otm.columns.find((c: Column) =>
+                    c.data.foreign_key && c.data.embedded_table === indTable.name);
+                const customAugmenter = new CustomAugmenter<Map<string, string>>(augData, augmentedColumn);
+                const fakerEntityProvider = new FakerEntityProvider(otm.columns, quantity, customAugmenter);
+                const otmQueryProps = new QueryProperties(otm, fakerEntityProvider);
+                connection.query(otmQueryProps);
+            } else { //unique only in this table, the record can also be found in other tables
+
+
+                //random rows are selected to assign indepentable foreign key values that will be used in insertion or update query
+                const augData = await getAugDataMap(indIds, randMax, quantity);
+                const augmentedColumn = otm.columns.find((c: Column) =>
+                    c.data.foreign_key && c.data.embedded_table === indTable.name);
+                const customAugmenter = new CustomAugmenter<Map<string, string>>(augData, augmentedColumn);
+                const fakerEntityProvider = new FakerEntityProvider(otm.columns, quantity, customAugmenter);
+                const otmQueryProps = new QueryProperties(otm, fakerEntityProvider);
+                connection.query(otmQueryProps);
+            }
+        });
+    });
 }
 
-const getConnectionProtocol = (connectionUrl: string): string|null => {
-    if (!isValidConnectionUri(connectionUrl))
-        return null
-    return connectionUrl.split(':')[0]
+/**This function selects a number of numbers from the range of rows that will be generated. The numbers selected will 
+ * represent the rows whose selected column will be augmented with a pre-assigned value.
+ * @param count is the number of rows to select.
+ * @param min is the min of the range or the first row number.
+ * @param max is the max of the range or the total number of rows.
+ * @returns The numbers selected.
+ */
+const getRandomRows = (count: number, min: number, max: number): number[] => {
+    const result = new Set<number>();
+
+    while (result.size < count) {
+        const randomNum = Math.floor(Math.random() * (max - min) + min);
+        result.add(randomNum);
+    }
+
+    return Array.from(result);
 }
 
-const getConnectionPort = (connectionUrl: string): number|null => {
-    if (!isValidConnectionUri(connectionUrl))
-        return null
-    return parseInt(connectionUrl.split(':')[3])
-}
+/**
+ * This function creates a map of foreign key values pre-assigments using ids supplied and randomly selected rows.
+ * @param indIds Independent table ids for foreign key pre-assignments.
+ * @param randMax Max of the random numbers to be generated. The number of rows to select.
+ * @param quantity Quantity from which to select from. Matches the quantity of rows generated or to be generated.
+ * @returns A Map of the pre-assignments.
+ */
+const getAugDataMap = async (indIds: string[], randMax: number, quantity: number): Promise<Map<string, string>> => {
+    const augData = new Map<string, string>();
+    const setCounter = new Set<number>();
+    indIds.forEach((id: string) => {
+        const r = randomInt(randMax);
+        if (r !== 0) {
+            let nums: number[] = [];
+            while ((nums.length === 0 || nums.some(num => setCounter.has(num)))
+                && setCounter.size !== quantity) {
 
-const isValidConnectionProtocol = (protocol: string|null): boolean => {
-    if (protocol) {
-        return isDbProviderSupported(protocol)
-    } else return false
-}
-
-//Probably never going use this as the port number can be changed during configuration
-const isValidConnectionPort = (protocol: string, port: number): boolean => {
-    return (C.PORT_MAP.has(protocol) || C.PORT_MAP_1.has(protocol))
-        && (C.PORT_MAP.get(protocol) === port || C.PORT_MAP_1.get(protocol) === port)
+                if ((quantity - setCounter.size) <= 5) {
+                    nums = getRandomRows(1, 1, quantity);
+                } else {
+                    nums = getRandomRows(r, 1, quantity);
+                }
+            }
+            nums.forEach((n: number) => {
+                augData.set(`${n}`, id);
+            });
+        }
+    });
+    return augData;
 }
