@@ -4,8 +4,8 @@ export class Table {
     name: string
     columns: Array<Column>
     is_join_table: boolean
-    data_uniqueness: string //table-unique/global-unique table-unique is when it is NOT ONLY found in this table 
-    // and can be found in more than one table. global-unique is when it is ONLY found in this table and nowhere else
+    data_uniqueness: string //table-unique/global-unique table-unique is when this table's data it is NOT ONLY found in one table 
+    // and can be found in more than one table. global-unique is when it is ONLY found in one table and nowhere else
     //distribution: string
 }
 
@@ -26,6 +26,8 @@ export class Table {
         gen_type: "auto" //custom. must be custom if desc is provided. if auto database generates value on INSERT
    }],
    join_table: false,
-   data_uniquenes: "table-unique"
+   data_uniquenes: "table-unique" //table-unique/global-unique table-unique is when this table's data it is NOT ONLY found in one table 
+    // and can be found in more than one table. global-unique is when it is ONLY found in one table and nowhere else
+    //distribution: string
 }
  */
