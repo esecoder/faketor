@@ -194,6 +194,8 @@ export class PgConnection implements Connectable {
             //`($${i * len + 1}, $${i * len + 2}, $${i * len + 3})`
             //`($${i * 3 + 1}, $${i * 3 + 2}, $${i * 3 + 3})`
 
+            const wherePlaceholders = `WHERE ${queryProps.primaryKeyColumn} IN (${queryProps.ids.map()})`
+
             const queryText = `${prefix}${valuePlaceholders} RETURNING ${queryProps.primaryKeyColumn}`
             console.log(queryText)
 
